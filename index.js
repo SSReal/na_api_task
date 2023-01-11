@@ -3,10 +3,17 @@ const mongoose = require("mongoose");
 
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
+const multer = require('multer');
 
 const User = require("./userModel");
 
+const Contact = require('./contactModel');
+
+const csv = require('csvtojson');
+
 dotenv.config();
+
+const upload = multer({dest: 'contactFiles/'});
 
 const app = express();
 
@@ -107,6 +114,50 @@ app.get("/auth", (req, res) => {
         message: "access granted"
     })
 
+})
+
+app.get('/contacts', (req,res) => {
+    Contact.find({}, undefined, undefined, (err, items) => {
+        if(err) {
+            console.log(err);
+        }
+        else {
+            res.json({items});
+        }
+    });
+});
+
+
+app.post('/contacts', upload.single('file') , (req, res, next) => {
+    csv()
+    .fromFile(req.file.path)
+    .then((jsonObj) => {
+        let contacts = [];
+        for(let i = 0; i<jsonObj.length; i++) {
+            let c = {};
+            c.name = jsonObj[i]['name'];
+            c.phone = jsonObj[i]['phone'];
+            c.email = jsonObj[i]['email'];
+            c.linkedin_url = jsonObj[i]['linkedin_url'];
+            contacts.push(c);
+        }
+        Contact.insertMany(contacts).then(() => {
+            res.status(200).send({
+                message: "uploaded successfully"
+            });
+        }).catch((err) => {
+            res.status(500).send({
+                message: "error occurred", 
+                err
+            });
+        });
+    })
+    .catch((err) => {
+        res.status(500).send({
+            message: "error occurred", 
+            err
+        });
+    })
 })
 
 mongoose
